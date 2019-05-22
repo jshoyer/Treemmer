@@ -1,4 +1,4 @@
-#Treemmer
+#Treemmer_v0.1_beta
 
 #Copyright 2018 Fabrizio Menardo
 
@@ -19,6 +19,7 @@
 # Dependencies:
 # You have to install ete3 http://etetoolkit.org/
 # and joblib https://pythonhosted.org/joblib/ to run Treemmer
+# Tremmer_v0.1_beta is compatible with joblib 0.11 and 0.12
 
 # If you use Treemmer for your research, please cite:
 # Treemmer: a tool to reduce large phylogenetic datasets with minimal loss of diversity. Menardo et. al (2018),BMC Bioinformatics 19:164. https://doi.org/10.1186/s12859-018-2164-8
@@ -274,14 +275,15 @@ def prune_dist_matrix(dlist,leaf_to_prune):
 	return (dlist)
 
 ##########################################		parallel loop		#######################
-def parallel_loop(i):
+def parallel_loop(t,leaves,i):
 	n=i
+	DLIST_temp={}
 	while n < len(leaves):
 		N_list=find_N(t,leaves[n])
 		n=n+arguments.cpu    			#n of  threads
 		if N_list:
-			DLIST.update(N_list)
-	return (DLIST)
+			DLIST_temp.update(N_list)
+	return (DLIST_temp)
 
 
 ##########################################		write output with stop option		#######################
@@ -377,8 +379,8 @@ def make_plot ():
 parser = argparse.ArgumentParser()
 
 parser.add_argument('INFILE',type=str,help='path to the newick tree')
-parser.add_argument('-X','--stop_at_X_leaves', metavar='0-n_leaves', default='0', help='stop pruning when the number of leaves =  X', type =int, nargs='?')
-parser.add_argument('-RTL','--stop_at_RTL', metavar='0-1', default='0', help='stop pruning when the relative tree length falls below RTL', type =restricted_float,nargs='?')
+parser.add_argument('-X','--stop_at_X_leaves', metavar='X', default='0', help='Output reduced tree with X leaves. If multiple values are given Treemmer will produce multiple reduced datsets in the same run' , type =int, nargs='*')
+parser.add_argument('-RTL','--stop_at_RTL', metavar='0-1', default='0', help='Output reduced tree with the specified RTL. If multiple values are given Treemmer will produce multiple reduced datsets in the same run', type =restricted_float, nargs='*')
 parser.add_argument('-r','--resolution', metavar='INT', default=1,help='number of leaves to prune at each iteration (default: 1)',type =int, nargs='?')
 parser.add_argument('-p','--solve_polytomies',help='resolve polytomies at random (default: FALSE)',action='store_true',default =False)
 parser.add_argument('-pr','--prune_random',help='prune random leaves (default: FALSE)',action='store_true',default =False)
@@ -393,12 +395,14 @@ parser.add_argument('-v' ,'--verbose', metavar='0,1,2', default='1', help='0: si
 parser.add_argument('-sc1' ,'--select_clade_1', metavar='leaf_name', default='', help='use together with -sc2. Treemmer will identify the smallest monophyletic clade including two specified leaves and output a list of leaves belonging to this clade. This can be usefull to prepare the --list_meta input file in case you want to prune only leaves belonging (or not belonging) to a certain clade', type =str, nargs='?')
 parser.add_argument('-sc2' ,'--select_clade_2', metavar='leaf_name', default='', help='use together with -sc1. Treemmer will identify the smallest monophyletic clade including two specified leaves and output a list of leaves belonging to this clade. This can be useful to prepare the --list_meta input file in case you want to prune only leaves belonging (or not belonging) to a certain clade', type =str, nargs='?')
 parser.add_argument('-sa' ,'--select_all', default= False, help='output the list of leaf names in the input tree and exit', action='store_true')
-parser.add_argument('-pa' ,'--plot_always', default= False, help='output the RTL plot and file also with -X and -RTL options', action='store_true')
+parser.add_argument('-pa' ,'--plot_always', default= False, help='output the RTL plot with the smallest tree defined by the -X or -RTL option', action='store_true')
+parser.add_argument('-pc' ,'--plot_complete', default= False, help='plot the complete RTL plot and file when the -X or -RTL options are specified ', action='store_true')
 arguments = parser.parse_args()
-	 
 
-if ((arguments.stop_at_RTL > 0) and (arguments.stop_at_X_leaves > 0)):
-	raise argparse.ArgumentTypeError("-X and -RTL are mutually exclusive options")
+if ((not (arguments.stop_at_RTL)) and (not(arguments.stop_at_X_leaves))):
+	arguments.plot_complete = True
+
+#	raise argparse.ArgumentTypeError("-X and -RTL are mutually exclusive options")
 
 ######   SOFTWARE STARTS
 
@@ -433,11 +437,11 @@ if arguments.verbose > 0:
 
 	if arguments.stop_at_X_leaves:
 		print "\nTreemmer will reduce the tree to " + str(arguments.stop_at_X_leaves) + " leaves"
+	
+	if arguments.stop_at_RTL:
+		print "\nTreemmer will reduce the tree to " + str(arguments.stop_at_RTL) + " of the original tree length"
 	else: 
-		if arguments.stop_at_RTL:
-			print "\nTreemmer will reduce the tree to " + str(arguments.stop_at_RTL) + " of the original tree length"
-		else: 
-			print "\nTreemmer will calculate the tree length decay"
+		print "\nTreemmer will calculate the tree length decay"
 
 	if arguments.list_meta:
 		print "\nsome leaves are protected by the -lm options and will not be pruned based on what specified with -mc or -lmc"  
@@ -475,7 +479,7 @@ while (len(t) > 3):								#################### Main loop ######################
 		if arguments.verbose > 1:
 			print "\ncalculating distances\n"
 		
-	DLIST = Parallel(n_jobs=arguments.cpu)(delayed(parallel_loop)(i) for i in range(0,arguments.cpu))	#loop all leaves and find neighbours, report pairs and distances
+	DLIST = Parallel(n_jobs=arguments.cpu)(delayed(parallel_loop)(t,leaves,i) for i in range(0,arguments.cpu))	#loop all leaves and find neighbours, report pairs and distances
 	result = {}
 
 	for d in DLIST:								#when running in parallel DLIST is a dict of dicts, this for loop merge them all in one
@@ -533,25 +537,27 @@ while (len(t) > 3):								#################### Main loop ######################
 			y.append(rel_TL)
 
 		if arguments.stop_at_X_leaves:										# if stop criterium is met (X) ==> output
-			if ((arguments.stop_at_X_leaves >= len(t)) or (leaf_to_p == "stop,")):
-				output1=arguments.INFILE+"_trimmed_tree_X_" + str(arguments.stop_at_X_leaves)
-				output2=arguments.INFILE+"_trimmed_list_X_" + str(arguments.stop_at_X_leaves)
+			if ((max(arguments.stop_at_X_leaves) >= len(t)) or (leaf_to_p == "stop,")):
+				output1=arguments.INFILE+"_trimmed_tree_X_" + str(max(arguments.stop_at_X_leaves))
+				output2=arguments.INFILE+"_trimmed_list_X_" + str(max(arguments.stop_at_X_leaves))
 				write_stop(t,output1,output2)
-				stop=1
-				break
+				arguments.stop_at_X_leaves.remove(max(arguments.stop_at_X_leaves))
+				#stop=1
+				#break
 			
 		if arguments.stop_at_RTL:										# if stop criterium is met (RTL) ==> output
-			if ((arguments.stop_at_RTL >= rel_TL ) or (leaf_to_p == "stop,")):
-				output1=arguments.INFILE+"_trimmed_tree_RTL_" + str(arguments.stop_at_RTL)
-				output2=arguments.INFILE+"_trimmed_list_RTL_" + str(arguments.stop_at_RTL) 
+			if ((max(arguments.stop_at_RTL) >= rel_TL ) or (leaf_to_p == "stop,")):
+				output1=arguments.INFILE+"_trimmed_tree_RTL_" + str(max(arguments.stop_at_RTL))
+				output2=arguments.INFILE+"_trimmed_list_RTL_" + str(max(arguments.stop_at_RTL)) 
 				write_stop(t,output1,output2)
-				stop=1
-				break
+				arguments.stop_at_RTL.remove(max(arguments.stop_at_RTL))
+				#stop=1
+				#break
 
 		if (leaf_to_p == "stop,"):
 			break
 
-		if arguments.verbose > 1:										# print progress on standard output
+		if arguments.verbose > 1:										# print progress to standard output
 
 			print "\n ITERATION RESOLUTION:	" + str(r)
 			print "leaf to prune:\n" + str(leaf_to_p) + "	" + str(leaf_to_prune.dist)
@@ -560,6 +566,12 @@ while (len(t) > 3):								#################### Main loop ######################
 			print "\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t))
 			print "\nnew matrix\n"
 			print DLIST
+
+
+	if  ((not(arguments.stop_at_RTL)) or  (len(arguments.stop_at_RTL) ==0)):
+		if ( (not(arguments.stop_at_X_leaves)) or (len(arguments.stop_at_X_leaves) ==0)):
+			if not arguments.plot_complete:
+				stop = 1
 
 	if (stop ==1):
 		if arguments.verbose > 0:
@@ -579,8 +591,8 @@ while (len(t) > 3):								#################### Main loop ######################
 		
 	if arguments.verbose > 0:
 		print "\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t))
+		 	
 
-	
 if ((stop == 0) or (arguments.plot_always)):														# create file for plot of rltd
 	F=open(arguments.INFILE+"_res_"+ str(arguments.resolution) + "_LD","w")
 	F.write("\n".join(output))
@@ -589,5 +601,5 @@ if ((stop == 0) or (arguments.plot_always)):														# create file for plot
 		make_plot()
 
 if (arguments.verbose > 0):
-	print "\n If you use Treemmer for your research, please cite:\n\n \"Treemmer: a tool to reduce large phylogenetic datasets with minimal loss of diversity\" Menardo et. al., BMC Bioinformatics (2018) 19:164\n\n"
+	print "\n If you use Treemmer, please cite:\n\n \"Treemmer: a tool to reduce large phylogenetic datasets with minimal loss of diversity\" Menardo et. al., BMC Bioinformatics (2018) 19:164\n\n"
 
