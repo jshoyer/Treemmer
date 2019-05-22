@@ -18,6 +18,7 @@
 
 # Dependencies:
 # You have to install ete3 http://etetoolkit.org/
+# matplotlib
 # and joblib https://pythonhosted.org/joblib/ to run Treemmer
 # Tremmer_v0.1_beta is compatible with joblib 0.11 and 0.12
 
