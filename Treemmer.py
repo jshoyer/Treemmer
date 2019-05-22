@@ -1,4 +1,4 @@
-#Treemmer_v0.1_beta
+#Treemmer_v0.2
 
 #Copyright 2018 Fabrizio Menardo
 
@@ -53,9 +53,9 @@ def find_N(t,leaf):
 	flag=0
 
 	if arguments.verbose==3:
-		print "leaf findN at ieration:	" + str(counter)
+		print "leaf findN at iteration:	" + str(counter)
 		print leaf
-		print "parent findN at ieration:	" + str(counter)
+		print "parent findN at iteration:	" + str(counter)
 		print parent
 		print parent.get_children()
 
@@ -397,6 +397,8 @@ parser.add_argument('-sc2' ,'--select_clade_2', metavar='leaf_name', default='',
 parser.add_argument('-sa' ,'--select_all', default= False, help='output the list of leaf names in the input tree and exit', action='store_true')
 parser.add_argument('-pa' ,'--plot_always', default= False, help='output the RTL plot with the smallest tree defined by the -X or -RTL option', action='store_true')
 parser.add_argument('-pc' ,'--plot_complete', default= False, help='plot the complete RTL plot and file when the -X or -RTL options are specified ', action='store_true')
+parser.add_argument('-sX','--switch_at_X', metavar='sX', default=1, help='Treemmer will start normally and switch to random subsampling when the tree has less than sX leaves. This option can be used with -sRTL, Treemmer will change behaviour as soon as one of the two criteria is met' , type =int, nargs='?')
+parser.add_argument('-sRTL','--switch_at_RTL', metavar='0-1', default=0, help='Treemmer will start normally and switch to random subsampling when the tree is shorter than sRTL.  This option can be used with -sX, Treemmer will change behaviour as soon as one of the two criteria is met', type =restricted_float, nargs='?')
 arguments = parser.parse_args()
 
 if ((not (arguments.stop_at_RTL)) and (not(arguments.stop_at_X_leaves))):
@@ -423,6 +425,7 @@ if (arguments.list_meta):
 if (arguments.list_meta_count):
 	dict_meta_count = read_list_tags(arguments.list_meta_count)
 
+
 if arguments.verbose > 0:
 												# print progress on standard output
 	print "N of taxa in tree is : "+ str(len(t))
@@ -433,7 +436,22 @@ if arguments.verbose > 0:
 		print "\nPolytomies will be kept"
 	
 	if arguments.prune_random:
-		print "\nA random leaf is pruned at each iteration, you don't really need Treemmer to do this"
+		print "\nA random leaf is pruned at each iteration"
+
+	if (arguments.leaves_pair == 0):
+		print "\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune the longest of the two leaves"
+
+	if (arguments.leaves_pair == 1):
+		print "\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune the shortest of the two leaves"
+
+	if (arguments.leaves_pair == 2):
+		print "\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune one of the two leaves picked at random"
+	
+	if (arguments.switch_at_X !=1):
+		print "\nWhen the tree is reduced to " + str(arguments.switch_at_X) + " leaves, Treemmer will switch behaviour and start pruning random leaves"
+
+	if arguments.switch_at_RTL:
+		print "\nWhen the tree is reduced to " + str(arguments.switch_at_RTL) + " of the original tree length, Treemmer will switch behaviour and start pruning random leaves"
 
 	if arguments.stop_at_X_leaves:
 		print "\nTreemmer will reduce the tree to " + str(arguments.stop_at_X_leaves) + " leaves"
@@ -445,6 +463,8 @@ if arguments.verbose > 0:
 
 	if arguments.list_meta:
 		print "\nsome leaves are protected by the -lm options and will not be pruned based on what specified with -mc or -lmc"  
+
+	
 	
 	print "\nTreemmer will prune " + str(arguments.resolution) + " leaves at each iteration"
 	print "\nTreemmer will use " + str(arguments.cpu) + " cpu(s)"
@@ -460,6 +480,7 @@ output.append ('1	' + str(len(t))) 			#append first point to the output with RTL
 x.append(ori_length)
 y.append(1)
 leaves = t.get_leaves()
+sys.setrecursionlimit(len(leaves))
 leaf_names=[]
 leaf_to_p=""
 
@@ -478,7 +499,8 @@ while (len(t) > 3):								#################### Main loop ######################
 		print "\niter		" + str(counter)
 		if arguments.verbose > 1:
 			print "\ncalculating distances\n"
-		
+	#leaves=leaves[1:10]
+	#print leaves	
 	DLIST = Parallel(n_jobs=arguments.cpu)(delayed(parallel_loop)(t,leaves,i) for i in range(0,arguments.cpu))	#loop all leaves and find neighbours, report pairs and distances
 	result = {}
 
@@ -536,6 +558,12 @@ while (len(t) > 3):								#################### Main loop ######################
 			x.append(length)
 			y.append(rel_TL)
 
+		if (arguments.switch_at_X >= len(t)):
+			arguments.prune_random = True
+			
+		if (arguments.switch_at_RTL >= rel_TL):
+			arguments.prune_random = True
+			
 		if arguments.stop_at_X_leaves:										# if stop criterium is met (X) ==> output
 			if ((max(arguments.stop_at_X_leaves) >= len(t)) or (leaf_to_p == "stop,")):
 				output1=arguments.INFILE+"_trimmed_tree_X_" + str(max(arguments.stop_at_X_leaves))
