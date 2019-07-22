@@ -1,6 +1,6 @@
-#Treemmer_v0.2
+#Treemmer_v0.3
 
-#Copyright 2018 Fabrizio Menardo
+#Copyright 2019 Fabrizio Menardo
 
 
 #   This program is free software: you can redistribute it and/or modify
@@ -17,10 +17,15 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Dependencies:
-# You have to install ete3 http://etetoolkit.org/
-# matplotlib
-# and joblib https://pythonhosted.org/joblib/ to run Treemmer
-# Tremmer_v0.1_beta is compatible with joblib 0.11 and 0.12
+#  ete3 
+#  joblib
+#  numpy
+#  matplotlib	
+
+# Tremmer_v0.3 is compatible with joblib 0.13.1 and 0.13.2
+
+
+
 
 # If you use Treemmer for your research, please cite:
 # Treemmer: a tool to reduce large phylogenetic datasets with minimal loss of diversity. Menardo et. al (2018),BMC Bioinformatics 19:164. https://doi.org/10.1186/s12859-018-2164-8
@@ -54,11 +59,11 @@ def find_N(t,leaf):
 	flag=0
 
 	if arguments.verbose==3:
-		print "leaf findN at iteration:	" + str(counter)
-		print leaf
-		print "parent findN at iteration:	" + str(counter)
-		print parent
-		print parent.get_children()
+		print ("leaf findN at iteration:	" + str(counter))
+		print (leaf)
+		print ("parent findN at iteration:	" + str(counter))
+		print (parent)
+		print (parent.get_children())
 
 	sister_flag=0
 	for n in range(0,len(parent.get_children())):				##this for loop start from parent and climb up max two nodes, if it finds leaves calculate the distances, 
@@ -66,8 +71,8 @@ def find_N(t,leaf):
 			flag=1
 			break
 		if arguments.verbose==3:							
-			print "children	" + str(n)
-			print parent.children[n]
+			print ("children	" + str(n))
+			print (parent.children[n])
 					
 		if (parent.children[n].is_leaf()):						# search at one node of distance
 			if (parent.children[n] != leaf):
@@ -75,11 +80,11 @@ def find_N(t,leaf):
 				dlist.update({leaf.name + "," +parent.children[n].name : DIS})
 				flag=flag+1
 				if arguments.verbose==3:
-					print leaf.name + "," +parent.children[n].name + str(DIS) + "have one node of distance"
+					print (leaf.name + "," +parent.children[n].name + str(DIS) + "have one node of distance")
 		else:	
 			if flag == 0:									
 				if arguments.verbose==3:					#going up, search at two nodes of distance
-					print "going up, brother is node"
+					print ("going up, brother is node")
 				
 				temp_dlist={}
 				for nn in range(0,len(parent.children[n].get_children())):
@@ -92,7 +97,7 @@ def find_N(t,leaf):
 	if ((sister_flag==1) and (flag==0)):						#collect results at two nodes of distance only if there are no leaves that are closer
 		dlist.update(temp_dlist)
 		if arguments.verbose==3:
-			print str(temp_dlist) + "	are not sister taxa, but neighbours first is leaf, second is upper neighbor"
+			print (str(temp_dlist) + "	are not sister taxa, but neighbours first is leaf, second is upper neighbor")
 
 
 	
@@ -100,9 +105,9 @@ def find_N(t,leaf):
 		parent=parent.up 		#### therefore I climb the tree down towards the root of one more step and look for leaves
 		multi_flag=0
 		if arguments.verbose==3:
-			print "going down"		
-			print "gran parent"		
-			print parent
+			print ("going down")		
+			print ("gran parent")		
+			print (parent)
 		temp_dlist={}
 		for n in range(0,len(parent.get_children())):		#this for loop start from gran parent and climb up max one nodes, if it finds leaves calculate the distances, 
 			if parent.is_root():
@@ -114,7 +119,7 @@ def find_N(t,leaf):
 		if multi_flag==1:					# this is to deal with polytomies 
 			dlist.update(temp_dlist)
 			if arguments.verbose==3:
-				print leaf.name + "," +parent.children[n].name + str(DIS) + "	are not sister taxa, but neighbours first is leaf, second is neighbor of downstair (towards root)"
+				print (leaf.name + "," +parent.children[n].name + str(DIS) + "	are not sister taxa, but neighbours first is leaf, second is neighbor of downstair (towards root)")
 	
 	return (dlist)
 		
@@ -124,7 +129,7 @@ def check_protected(leaf_to_prune):
 	
 
 	if arguments.verbose > 1:
-		print "checking " + str(leaf_to_prune)
+		print ("checking " + str(leaf_to_prune))
 	warning=0	
 	for tag in  dict_meta[leaf_to_prune]:      # loop thru all the tags of the selected leaf
 		tag_counter=0
@@ -137,7 +142,7 @@ def check_protected(leaf_to_prune):
 			if flag==1:				# if the leaf has several time the same tag (mistake in input) it counts only one
 				tag_counter = tag_counter +1
 		if arguments.verbose > 1:
-			print str(leaf_to_prune)+ " " + str(tag) + " "+ str(tag_counter)
+			print (str(leaf_to_prune)+ " " + str(tag) + " "+ str(tag_counter))
 		if (arguments.list_meta_count):						# if -lmc option
 			if tag_counter <= int(dict_meta_count[tag]):
 				warning=1
@@ -147,10 +152,31 @@ def check_protected(leaf_to_prune):
 				if (int(tag_counter) <= int(arguments.meta_count)):
 					warning=1
 		if arguments.verbose > 1:
-			print "warning = "+ str(warning)		
+			print ("warning = "+ str(warning))		
 	return (warning)			
 
+##########################################		IDENTIFY  LEAF TO PRUNE RANDOM			#######################
 
+
+def find_leaf_to_prune_random(leaves):					
+	random.shuffle(leaves)
+	flag=0
+	for leaf in leaves:
+		warning=0
+		if (arguments.list_meta and dict_meta[leaf.name]):			#check if leaf is protected
+			warning=check_protected(leaf.name)
+
+		if warning == 0:
+			flag=1
+			break
+
+	if flag == 0:
+		leaf_to_pr="stop,"
+	else:
+		leaf_to_pr=leaf.name
+		
+				
+	return(leaf_to_pr)
 
 ##########################################		IDENTIFY  LEAF TO PRUNE			#######################
 
@@ -161,16 +187,18 @@ def find_leaf_to_prune(dlist):					#parse the list with all neighbor pairs and d
 		if (len(dlist) == 0):
 			leaf_to_prune = "stop,"
 			break
-		min_val = min(dlist.itervalues())
+
+		min_key=min(dlist, key=dlist.get)
+		min_val=dlist[min_key]
+
+
 		d_min={}
+		d_min.update({min_key:min_val})
 	
-		for k, v in dlist.iteritems(): 
-			if v == min_val:
-				d_min.update({k:v})
+
 	
 		pair_unsplit= str(random.choice(list(d_min)))
-		if arguments.prune_random:
-			pair_unsplit= str(random.choice(list(dlist)))
+		
 		pair=pair_unsplit.split(",")
 		leaf1 = t.search_nodes(name=pair[0])[0]
 		leaf2 = t.search_nodes(name=pair[1])[0]
@@ -199,7 +227,7 @@ def find_leaf_to_prune(dlist):					#parse the list with all neighbor pairs and d
 					leaf_to_keep = leaf
 
 		if arguments.verbose > 1:		
-			print "leaf_to_check  " + str(leaf_to_prune)
+			print ("leaf_to_check  " + str(leaf_to_prune))
 
 		if (arguments.list_meta and dict_meta[leaf_to_prune]):			#check if leaf is protected
 			warning=check_protected(leaf_to_prune)
@@ -207,8 +235,8 @@ def find_leaf_to_prune(dlist):					#parse the list with all neighbor pairs and d
 			if warning == 1:
 
 				if arguments.verbose > 1:
-					print " checking the neighbour"
-					print "leaf_to_check " + str(leaf_to_keep)
+					print (" checking the neighbour")
+					print ("leaf_to_check " + str(leaf_to_keep))
 				warning=check_protected(leaf_to_keep)			# if leaf is protected I check the sister
 				if warning == 0 :
 					leaf_to_prune=leaf_to_keep
@@ -265,7 +293,7 @@ def calculate_TL(t):
 ##########################################		PRUNE LEAF FROM MATRIX		#######################
 def prune_dist_matrix(dlist,leaf_to_prune):
 	key_del=[]
-	for k, v in dlist.iteritems():
+	for k, v in dlist.items():
 
 		(one,two)=k.split(",")
 		if ((one == leaf_to_prune) or (two == leaf_to_prune)):
@@ -429,46 +457,46 @@ if (arguments.list_meta_count):
 
 if arguments.verbose > 0:
 												# print progress on standard output
-	print "N of taxa in tree is : "+ str(len(t))
+	print ("N of taxa in tree is : "+ str(len(t)))
 	
 	if arguments.solve_polytomies:
-		print "\nPolytomies will be solved at random"
+		print ("\nPolytomies will be solved at random")
 	else:
-		print "\nPolytomies will be kept"
+		print ("\nPolytomies will be kept")
 	
 	if arguments.prune_random:
-		print "\nA random leaf is pruned at each iteration"
+		print ("\nA random leaf is pruned at each iteration")
 
 	if (arguments.leaves_pair == 0):
-		print "\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune the longest of the two leaves"
+		print ("\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune the longest of the two leaves")
 
 	if (arguments.leaves_pair == 1):
-		print "\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune the shortest of the two leaves"
+		print ("\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune the shortest of the two leaves")
 
 	if (arguments.leaves_pair == 2):
-		print "\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune one of the two leaves picked at random"
+		print ("\nAfter the pair of leaves with the smallest distance is dentified Treemmer will prune one of the two leaves picked at random")
 	
 	if (arguments.switch_at_X !=1):
-		print "\nWhen the tree is reduced to " + str(arguments.switch_at_X) + " leaves, Treemmer will switch behaviour and start pruning random leaves"
+		print ("\nWhen the tree is reduced to " + str(arguments.switch_at_X) + " leaves, Treemmer will switch behaviour and start pruning random leaves")
 
 	if arguments.switch_at_RTL:
-		print "\nWhen the tree is reduced to " + str(arguments.switch_at_RTL) + " of the original tree length, Treemmer will switch behaviour and start pruning random leaves"
+		print ("\nWhen the tree is reduced to " + str(arguments.switch_at_RTL) + " of the original tree length, Treemmer will switch behaviour and start pruning random leaves")
 
 	if arguments.stop_at_X_leaves:
-		print "\nTreemmer will reduce the tree to " + str(arguments.stop_at_X_leaves) + " leaves"
+		print ("\nTreemmer will reduce the tree to " + str(arguments.stop_at_X_leaves) + " leaves")
 	
 	if arguments.stop_at_RTL:
-		print "\nTreemmer will reduce the tree to " + str(arguments.stop_at_RTL) + " of the original tree length"
+		print ("\nTreemmer will reduce the tree to " + str(arguments.stop_at_RTL) + " of the original tree length")
 	else: 
-		print "\nTreemmer will calculate the tree length decay"
+		print ("\nTreemmer will calculate the tree length decay")
 
 	if arguments.list_meta:
-		print "\nsome leaves are protected by the -lm options and will not be pruned based on what specified with -mc or -lmc"  
+		print ("\nsome leaves are protected by the -lm options and will not be pruned based on what specified with -mc or -lmc")  
 
 	
 	
-	print "\nTreemmer will prune " + str(arguments.resolution) + " leaves at each iteration"
-	print "\nTreemmer will use " + str(arguments.cpu) + " cpu(s)"
+	print ("\nTreemmer will prune " + str(arguments.resolution) + " leaves at each iteration")
+	print ("\nTreemmer will use " + str(arguments.cpu) + " cpu(s)")
 
 x=[]
 y=[]	
@@ -481,7 +509,8 @@ output.append ('1	' + str(len(t))) 			#append first point to the output with RTL
 x.append(ori_length)
 y.append(1)
 leaves = t.get_leaves()
-sys.setrecursionlimit(len(leaves))
+
+sys.setrecursionlimit(50000)
 leaf_names=[]
 leaf_to_p=""
 
@@ -497,11 +526,11 @@ while (len(t) > 3):								#################### Main loop ######################
 	DLIST={}
 
 	if arguments.verbose > 0:
-		print "\niter		" + str(counter)
+		print ("\niter		" + str(counter))
 		if arguments.verbose > 1:
-			print "\ncalculating distances\n"
-	#leaves=leaves[1:10]
-	#print leaves	
+			print ("\ncalculating distances\n")
+
+	
 	DLIST = Parallel(n_jobs=arguments.cpu)(delayed(parallel_loop)(t,leaves,i) for i in range(0,arguments.cpu))	#loop all leaves and find neighbours, report pairs and distances
 	result = {}
 
@@ -511,8 +540,8 @@ while (len(t) > 3):								#################### Main loop ######################
 	DLIST=result
 
 	if arguments.verbose > 1:
-		print DLIST
-		print "\npruning\n"
+		print (DLIST)
+		print ("\npruning\n")
 
 	for r in range (1,arguments.resolution+1):    				#resolution loop (find leaf to prune, prune it, update matrix r times)
 
@@ -525,11 +554,16 @@ while (len(t) > 3):								#################### Main loop ######################
 			if ((len(DLIST)<1) or (len(t) < 4)):
 				break
 
-		(leaf_to_p) = find_leaf_to_prune(DLIST)			#find leaf to prune,  protections (from -lm option) are embedded in the function
+		if arguments.prune_random:
+
+			(leaf_to_p)= find_leaf_to_prune_random(leaves)		#find leaf to prune,  protections (from -lm option) are embedded in the function
+		else:
+			(leaf_to_p) = find_leaf_to_prune(DLIST)			#find leaf to prune,  protections (from -lm option) are embedded in the function
+
 
 		if (leaf_to_p == "stop,"):
 			if r == 1:				# if r > 1 some taxa might have been no considered because surrounded by already pruned leaves
-				print "WARNING: all remaining leaves are protected by the -lm option, outputting the results at current iteration"
+				print ("WARNING: all remaining leaves are protected by the -lm option, outputting the results at current iteration")
 			if r > 1:
 				leaf_to_p = ""
 				break				#if r > 1 make another cycle recalculating distances and maybe find some more leaves to prune 
@@ -538,9 +572,10 @@ while (len(t) > 3):								#################### Main loop ######################
 	
 			leaf_to_prune = t.search_nodes(name=leaf_to_p)[0]		
 			t = prune_t(leaf_to_p,t)				#do the tree pruning
-			
+			leaves = t.get_leaves()
+
 			if (arguments.list_meta):		####### update the dictionary of taxa_names with tags, only taxa in the tree are kept in the dict
-				leaves = t.get_leaves()
+
 				leaf_names=[]
 				for leaf in leaves:					    	
 					leaf_names.append(leaf.name) 			    
@@ -548,7 +583,8 @@ while (len(t) > 3):								#################### Main loop ######################
 				dict_meta=dict_meta_new
 
 			TL= calculate_TL(t)
-			DLIST=prune_dist_matrix(DLIST,leaf_to_p)		#### purge the distance list of all pairs that have the pruned leaf 
+			if not arguments.prune_random:	
+				DLIST=prune_dist_matrix(DLIST,leaf_to_p)		#### purge the distance list of all pairs that have the pruned leaf 
 			rel_TL=TL/TOT_TL
 		
 		#################################  		OUTPUT 		##########################################################		
@@ -588,13 +624,13 @@ while (len(t) > 3):								#################### Main loop ######################
 
 		if arguments.verbose > 1:										# print progress to standard output
 
-			print "\n ITERATION RESOLUTION:	" + str(r)
-			print "leaf to prune:\n" + str(leaf_to_p) + "	" + str(leaf_to_prune.dist)
-			print "\n new tree"
-			print t
-			print "\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t))
-			print "\nnew matrix\n"
-			print DLIST
+			print ("\n ITERATION RESOLUTION:	" + str(r))
+			print ("leaf to prune:\n" + str(leaf_to_p) + "	" + str(leaf_to_prune.dist))
+			print ("\n new tree")
+			print (t)
+			print ("\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t)))
+			print ("\nnew matrix\n")
+			print (DLIST)
 
 
 	if  ((not(arguments.stop_at_RTL)) or  (len(arguments.stop_at_RTL) ==0)):
@@ -604,12 +640,12 @@ while (len(t) > 3):								#################### Main loop ######################
 
 	if (stop ==1):
 		if arguments.verbose > 0:
-			print "\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t))
+			print ("\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t)))
 		break	
 
 	if (leaf_to_p == "stop,"):
 		if arguments.verbose > 0:
-			print "\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t))
+			print ("\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t)))
 		break
 
 	if not (arguments.fine_plot):											# normal plot (with -fp = FALSE)
@@ -619,7 +655,7 @@ while (len(t) > 3):								#################### Main loop ######################
 		y.append(rel_TL)
 		
 	if arguments.verbose > 0:
-		print "\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t))
+		print ("\nRTL :	" + str(rel_TL) + " N_seq:	" +str(len(t)))
 		 	
 
 if ((stop == 0) or (arguments.plot_always)):														# create file for plot of rltd
@@ -630,5 +666,5 @@ if ((stop == 0) or (arguments.plot_always)):														# create file for plot
 		make_plot()
 
 if (arguments.verbose > 0):
-	print "\n If you use Treemmer, please cite:\n\n \"Treemmer: a tool to reduce large phylogenetic datasets with minimal loss of diversity\" Menardo et. al., BMC Bioinformatics (2018) 19:164\n\n"
+	print ("\n If you use Treemmer, please cite:\n\n \"Treemmer: a tool to reduce large phylogenetic datasets with minimal loss of diversity\" Menardo et. al., BMC Bioinformatics (2018) 19:164\n\n")
 
